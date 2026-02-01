@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  
+  <!-- Título de la pestaña -->
+  <title>Aforos Autovía – 6 Horas</title>
+
+  <!-- Favicon: tu logo.png en la pestaña del navegador -->
+  <link rel="icon" type="image/png" href="logo.png">
+
+  <!-- Ícono para móviles (cuando se añade a pantalla de inicio en iPhone/iPad) -->
+  <link rel="apple-touch-icon" sizes="180x180" href="logo.png">
+
+  <!-- Opcional: si tienes una versión más pequeña (32x32 o 64x64) puedes añadirla también -->
+  <!-- <link rel="icon" type="image/png" sizes="32x32" href="logo-32.png"> -->
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { height:100%; font-family:Arial, Helvetica, sans-serif; background:#111; color:white; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+    #container { height:100dvh; display:grid; grid-template-rows:auto 1fr auto; background:#000; }
+    header { background:#1a1a1a; padding:12px; text-align:center; font-size:1.2rem; border-bottom:2px solid #444; }
+    .scroll-wrapper { overflow-y:auto; -webkit-overflow-scrolling:touch; padding:20px; }
+    .start-screen { display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; padding:20px; text-align:center; background:#000; }
+    .start-screen h1 { margin-bottom:30px; font-size:1.8rem; }
+    .start-screen label { display:block; margin:15px 0 5px; font-size:1.1rem; }
+    .start-screen input, .start-screen select, .start-screen input[type="date"] { 
+      width:90%; max-width:400px; padding:12px; font-size:1.1rem; border-radius:8px; border:none; background:#333; color:white; 
+    }
+    .start-screen button { margin-top:40px; padding:14px 40px; font-size:1.3rem; background:#006600; border:none; border-radius:10px; color:white; cursor:pointer; }
+    .start-screen button:hover { background:#28a745; }
+    .hour-selector { background:#222; padding:6px 8px; display:flex; justify-content:center; gap:6px; flex-wrap:wrap; border-bottom:1px solid #444; }
+    .hour-btn { padding:6px 10px; background:#333; border:1px solid #555; border-radius:6px; color:white; font-size:0.95rem; min-width:38px; cursor:pointer; touch-action:manipulation; }
+    .hour-btn.active { background:#006600; border-color:#28a745; font-weight:bold; }
+    .hour-btn.completed { background:#004080; border-color:#1e90ff; }
+    table { width:100%; border-collapse:collapse; font-size:16px; }
+    tr { height:52px; min-height:52px; }
+    td, th { border:1px solid #444; padding:8px; text-align:center; white-space:nowrap; }
+    .tipo { text-align:left; padding-left:12px; font-weight:bold; display:flex; align-items:center; gap:8px; }
+    .checkbox-cell { width:30px; text-align:center; }
+    .icon { width:42px; text-align:center; vertical-align:middle; }
+    .icon img { width:40px; height:40px; object-fit:contain; vertical-align:middle; }
+    tr[data-type="COCHE"] .nacional,
+    tr[data-type="FURGONETA"] .nacional,
+    tr[data-type="ARTICULADO"] .nacional { background: #003366 !important; }
+    tr[data-type="COCHE"] .extranjero,
+    tr[data-type="FURGONETA"] .extranjero,
+    tr[data-type="ARTICULADO"] .extranjero { background: #004d00 !important; }
+    tr[data-type="COCHE"] .peligroso,
+    tr[data-type="FURGONETA"] .peligroso,
+    tr[data-type="ARTICULADO"] .peligroso { background: #660000 !important; }
+    tr[data-type="COCHE"],
+    tr[data-type="FURGONETA"],
+    tr[data-type="ARTICULADO"] {
+      border-top: 2px solid #28a745;
+      border-bottom: 2px solid #28a745;
+    }
+    tr[data-type="COCHE"] .tipo,
+    tr[data-type="FURGONETA"] .tipo,
+    tr[data-type="ARTICULADO"] .tipo {
+      font-weight: bold;
+      font-size: 1.05rem;
+      color: #e0ffe0;
+    }
+    .count { font-size:1.45rem; font-weight:bold; min-width:56px; cursor:pointer; user-select:none; }
+    .nacional   { background:#004080; color:white; }
+    .extranjero { background:#006600; color:white; }
+    .peligroso  { background:#8B0000; color:white; }
+    footer { background:#1a1a1a; padding:8px 10px; border-top:2px solid #444; display:flex; flex-direction:row; flex-wrap:nowrap; gap:6px; overflow-x:auto; white-space:nowrap; }
+    footer button { flex:0 0 auto; padding:8px 14px; font-size:0.98rem; background:#333; color:white; border:1px solid #555; border-radius:6px; min-width:54px; }
+    footer button.reset { background:#8B0000; border-color:#a00; }
+    footer button.undo { background:#444; border-color:#666; }
+    .floating-menu { position:fixed; top:20px; right:20px; z-index:1000; }
+    .menu-btn { width:50px; height:50px; background:#e67e22; border-radius:50%; box-shadow:0 4px 12px rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; font-size:26px; cursor:pointer; border:none; color:white; }
+    .menu-content { position:absolute; top:60px; right:0; background:#222; border-radius:8px; box-shadow:0 5px 20px rgba(0,0,0,0.6); padding:10px 0; min-width:180px; display:none; flex-direction:column; }
+    .menu-content.show { display:flex; }
+    .menu-item { padding:12px 20px; color:white; cursor:pointer; font-size:1rem; }
+    .menu-item:hover { background:#333; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+
+<div id="container">
+  <div id="startScreen" class="start-screen">
+    <h1>Aforos Autovía – 6 Horas</h1>
+    
+    <label for="aforador">Nombre del Aforador</label>
+    <input type="text" id="aforador" placeholder="Tu nombre" required>
+
+    <label for="lugar">Lugar del Aforo</label>
+    <input type="text" id="lugar" placeholder="Autovía A-XXX, km XXX" required>
+
+    <label for="fecha">Fecha</label>
+    <input type="date" id="fecha" required>
+
+    <label for="tiempo">Estado del tiempo</label>
+    <select id="tiempo" required>
+      <option value="">Selecciona...</option>
+      <option value="Soleado">Soleado</option>
+      <option value="Nublado">Nublado</option>
+      <option value="Lluvia ligera">Lluvia ligera</option>
+      <option value="Lluvia fuerte">Lluvia fuerte</option>
+      <option value="Nevando">Nevando</option>
+      <option value="Niebla">Niebla</option>
+      <option value="Viento fuerte">Viento fuerte</option>
+      <option value="Otros">Otros</option>
+    </select>
+
+    <label for="dia_semana">Día de la semana</label>
+    <select id="dia_semana" required>
+      <option value="">Selecciona...</option>
+      <option value="Lunes">Lunes</option>
+      <option value="Martes">Martes</option>
+      <option value="Miércoles">Miércoles</option>
+      <option value="Jueves">Jueves</option>
+      <option value="Viernes">Viernes</option>
+      <option value="Sábado">Sábado</option>
+      <option value="Domingo">Domingo</option>
+    </select>
+
+    <label for="direccion">Dirección del aforo</label>
+    <input type="text" id="direccion" placeholder="Ej: Madrid → Barcelona" required>
+
+    <button onclick="startAforo()">Iniciar Aforo</button>
+  </div>
+
+  <div id="mainScreen" class="hidden">
+    <header id="mainHeader"><strong>Aforos Autovía – 6 horas</strong></header>
+
+    <div class="hour-selector" id="hourSelector"></div>
+
+    <div class="scroll-wrapper">
+      <table id="vehicleTable">
+        <tr>
+          <th class="checkbox-cell"></th>
+          <th class="icon"></th>
+          <th class="tipo">Tipo</th>
+          <th class="nacional">Nac.</th>
+          <th class="extranjero">Ext.</th>
+          <th class="peligroso">Pel.</th>
+        </tr>
+      </table>
+    </div>
+
+    <footer>
+      <button data-mult="2">×2 todo</button>
+      <button data-mult="4">×4 todo</button>
+      <button class="undo">← Atrás</button>
+      <button class="reset">Reset hora</button>
+    </footer>
+  </div>
+</div>
+
+<div class="floating-menu">
+  <button class="menu-btn" id="menuToggle">☰</button>
+  <div class="menu-content" id="menuContent">
+    <div class="menu-item" id="generatePDF">Generar PDF (tabla clara)</div>
+  </div>
+</div>
+
+<script>
+// ────────────────────────────────────────────────
+const HOURS = 6;
+let currentHour = 1;
+const data = Array.from({length: HOURS}, () => ({}));
+
+const vehicleTypes = [
+  { icon: '<img src="moto.png" alt="Moto" style="width:40px;height:40px;object-fit:contain;">', name: "MOTO"      },
+  { icon: '<img src="coche.png" alt="Coche" style="width:40px;height:40px;object-fit:contain;">', name: "COCHE"     },
+  { icon: '<img src="caravana.png" alt="Caravana" style="width:40px;height:40px;object-fit:contain;">', name: "CARAVANA"  },
+  { icon: '<img src="furgoneta.png" alt="Furgoneta" style="width:40px;height:40px;object-fit:contain;">', name: "FURGONETA" },
+  { icon: '<img src="rigido.png" alt="Rígido" style="width:40px;height:40px;object-fit:contain;">', name: "RÍGIDO"    },
+  { icon: '<img src="articulado.png" alt="Articulado" style="width:40px;height:40px;object-fit:contain;">', name: "ARTICULADO"},
+  { icon: '<img src="tren.png" alt="Tren" style="width:40px;height:40px;object-fit:contain;">', name: "TREN"      },
+  { icon: '<img src="especial.png" alt="Especial" style="width:40px;height:40px;object-fit:contain;">', name: "ESPECIAL"  },
+  { icon: '<img src="bus.png" alt="Bus" style="width:40px;height:40px;object-fit:contain;">', name: "BUS"       }
+];
+
+let aforador = "";
+let lugar = "";
+let fecha = "";
+let tiempo = "";
+let diaSemana = "";
+let direccion = "";
+
+function createTable() {
+  const table = document.getElementById("vehicleTable");
+  vehicleTypes.forEach(v => {
+    const tr = document.createElement("tr");
+    tr.setAttribute("data-type", v.name);
+    tr.innerHTML = `
+      <td class="checkbox-cell">
+        <input type="checkbox" class="multiply-check" data-type="${v.name}" checked>
+      </td>
+      <td class="icon">${v.icon}</td>
+      <td class="tipo">${v.name}</td>
+      <td class="count nacional" data-type="${v.name}-nac">0</td>
+      <td class="count extranjero" data-type="${v.name}-ext">0</td>
+      <td class="count peligroso" data-type="${v.name}-pel">0</td>
+    `;
+    table.appendChild(tr);
+  });
+}
+
+function createHourSelector() {
+  const selector = document.getElementById("hourSelector");
+  for (let i = 1; i <= HOURS; i++) {
+    const btn = document.createElement("button");
+    btn.className = "hour-btn";
+    btn.textContent = `H${i}`;
+    btn.dataset.hour = i;
+    btn.addEventListener("click", () => changeHour(i));
+    selector.appendChild(btn);
+  }
+  updateHourButtons();
+}
+
+function changeHour(hour) {
+  if (hour === currentHour) return;
+  saveCurrentHourData();
+  currentHour = hour;
+  loadHourData();
+  updateHourButtons();
+}
+
+function saveCurrentHourData() {
+  const counts = document.querySelectorAll(".count");
+  const hourData = {};
+  counts.forEach(cell => {
+    hourData[cell.dataset.type] = cell.textContent.trim();
+  });
+  data[currentHour - 1] = hourData;
+}
+
+function loadHourData() {
+  const hourData = data[currentHour - 1] || {};
+  document.querySelectorAll(".count").forEach(cell => {
+    cell.textContent = hourData[cell.dataset.type] || "0";
+  });
+}
+
+function updateHourButtons() {
+  document.querySelectorAll(".hour-btn").forEach(btn => {
+    const h = parseInt(btn.dataset.hour);
+    btn.classList.remove("active", "completed");
+    if (h === currentHour) btn.classList.add("active");
+    else if (hasDataInHour(h)) btn.classList.add("completed");
+  });
+}
+
+function hasDataInHour(hour) {
+  const d = data[hour - 1];
+  return d && Object.values(d).some(v => v !== "0" && v !== "");
+}
+
+function setupCounters() {
+  const allCounts = document.querySelectorAll(".count");
+  const multiplyChecks = document.querySelectorAll(".multiply-check");
+  let history = [];
+
+  function saveState() {
+    const state = Array.from(allCounts).map(cell => cell.textContent);
+    history.push(state);
+    if (history.length > 10) history.shift();
+  }
+
+  function undo() {
+    if (history.length === 0) return;
+    const previous = history.pop();
+    allCounts.forEach((cell, i) => cell.textContent = previous[i]);
+  }
+
+  allCounts.forEach(cell => {
+    cell.addEventListener("click", () => {
+      saveState();
+      let val = parseInt(cell.textContent) || 0;
+      cell.textContent = val + 1;
+    });
+
+    let timer;
+    cell.addEventListener("touchstart", () => {
+      timer = setTimeout(() => {
+        saveState();
+        let val = parseInt(cell.textContent) || 0;
+        if (val > 0) cell.textContent = val - 1;
+      }, 600);
+    });
+    cell.addEventListener("touchend", () => clearTimeout(timer));
+    cell.addEventListener("touchmove", () => clearTimeout(timer));
+  });
+
+  document.querySelector('button[data-mult="2"]').addEventListener("click", () => {
+    saveState();
+    allCounts.forEach(cell => {
+      if (!cell.classList.contains("nacional")) return;
+
+      const type = cell.dataset.type.split('-')[0];
+      const check = document.querySelector(`.multiply-check[data-type="${type}"]`);
+      if (!check || !check.checked) return;
+
+      let val = parseInt(cell.textContent) || 0;
+      if (val === 0) return;
+      let nuevo = val * 2;
+      if (Math.random() < 0.5) nuevo += 1;
+      cell.textContent = nuevo;
+    });
+  });
+
+  document.querySelector('button[data-mult="4"]').addEventListener("click", () => {
+    saveState();
+    allCounts.forEach(cell => {
+      if (!cell.classList.contains("nacional")) return;
+
+      const type = cell.dataset.type.split('-')[0];
+      const check = document.querySelector(`.multiply-check[data-type="${type}"]`);
+      if (!check || !check.checked) return;
+
+      let val = parseInt(cell.textContent) || 0;
+      if (val === 0) return;
+      let nuevo = val * 4;
+      if (Math.random() < 0.5) nuevo += 1;
+      cell.textContent = nuevo;
+    });
+  });
+
+  document.querySelector(".undo").addEventListener("click", undo);
+
+  document.querySelector(".reset").addEventListener("click", () => {
+    if (confirm("¿Resetear TODOS los contadores de esta hora?")) {
+      saveState();
+      allCounts.forEach(cell => cell.textContent = "0");
+    }
+  });
+}
+
+function startAforo() {
+  aforador = document.getElementById("aforador").value.trim() || "Aforador";
+  lugar = document.getElementById("lugar").value.trim() || "Lugar no especificado";
+  fecha = document.getElementById("fecha").value || new Date().toISOString().split('T')[0];
+  tiempo = document.getElementById("tiempo").value || "No especificado";
+  diaSemana = document.getElementById("dia_semana").value || "No especificado";
+  direccion = document.getElementById("direccion").value.trim() || "No especificada";
+
+  document.getElementById("startScreen").classList.add("hidden");
+  document.getElementById("mainScreen").classList.remove("hidden");
+
+  document.getElementById("mainHeader").innerHTML = `
+    <strong>${lugar}</strong><br>
+    <small>Aforador: ${aforador} – ${fecha}</small>
+  `;
+
+  createTable();
+  createHourSelector();
+  loadHourData();
+
+  setupCounters();
+}
+
+// Menú flotante
+const menuToggle = document.getElementById("menuToggle");
+const menuContent = document.getElementById("menuContent");
+
+menuToggle.addEventListener("click", () => {
+  saveCurrentHourData();
+  menuContent.classList.toggle("show");
+});
+
+document.addEventListener("click", e => {
+  if (!menuToggle.contains(e.target) && !menuContent.contains(e.target)) {
+    menuContent.classList.remove("show");
+  }
+});
+
+// PDF (sin cambios)
+document.getElementById("generatePDF").addEventListener("click", () => {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
+
+  const nacBg = [220, 240, 255];
+  const extBg = [230, 255, 230];
+  const pelBg = [255, 230, 230];
+  const headerBg = [40, 40, 60];
+  const gridColor = [160, 160, 160];
+
+  doc.setFillColor(...headerBg);
+  doc.rect(0, 0, 297, 45, 'F');
+
+  doc.setFontSize(20);
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.text("AFORO AUTOVÍA – REGISTRO POR HORAS", 148.5, 18, { align: "center" });
+
+  doc.setFontSize(11);
+  doc.setTextColor(220, 220, 220);
+  doc.text(`Aforador: ${aforador}   |   Lugar: ${lugar}   |   Fecha: ${fecha}`, 148.5, 30, { align: "center" });
+
+  doc.setFontSize(10);
+  doc.text(`Estado del tiempo: ${tiempo}   |   Día de la semana: ${diaSemana}   |   Dirección: ${direccion}`, 148.5, 38, { align: "center" });
+
+  let y = 55;
+  const colWidth = 36;
+  const startX = 10;
+
+  doc.setFillColor(230, 230, 230);
+  doc.rect(startX, y-8, 277, 14, 'F');
+
+  doc.setFontSize(12);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont("helvetica", "bold");
+  doc.text("Tipo de vehículo", startX + 5, y);
+
+  for (let h = 1; h <= HOURS; h++) {
+    const baseX = 70 + (h-1) * colWidth;
+    doc.text(`H${h}`, baseX + colWidth/2, y, { align: "center" });
+  }
+  y += 6;
+
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont("helvetica", "bold");
+
+  for (let h = 1; h <= HOURS; h++) {
+    const baseX = 70 + (h-1) * colWidth;
+    doc.setFillColor(...nacBg);
+    doc.rect(baseX, y-4, 12, 10, 'F');
+    doc.text("Nac.", baseX + 6, y, { align: "center" });
+
+    doc.setFillColor(...extBg);
+    doc.rect(baseX + 12, y-4, 12, 10, 'F');
+    doc.text("Ext.", baseX + 18, y, { align: "center" });
+
+    doc.setFillColor(...pelBg);
+    doc.rect(baseX + 24, y-4, 12, 10, 'F');
+    doc.text("Pel.", baseX + 30, y, { align: "center" });
+  }
+  y += 8;
+
+  doc.setLineWidth(0.6);
+  doc.line(startX, y, 287, y);
+  y += 2;
+
+  doc.setLineWidth(2.0);
+  doc.setDrawColor(60, 60, 60);
+  doc.line(65, 45, 65, y + 10 * vehicleTypes.length + 16);
+
+  let startY = y;
+  vehicleTypes.forEach(() => {
+    for (let h = 0; h < HOURS; h++) {
+      const baseX = 70 + h * colWidth;
+
+      doc.setFillColor(...nacBg);
+      doc.rect(baseX, startY - 4, 12, 10, 'F');
+
+      doc.setFillColor(...extBg);
+      doc.rect(baseX + 12, startY - 4, 12, 10, 'F');
+
+      doc.setFillColor(...pelBg);
+      doc.rect(baseX + 24, startY - 4, 12, 10, 'F');
+    }
+    startY += 10;
+  });
+
+  y = 55 + 14 + 8 + 2;
+
+  vehicleTypes.forEach(v => {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(0, 0, 0);
+    doc.text(v.name, 15, y + 6);
+
+    for (let h = 1; h <= HOURS; h++) {
+      const hourData = data[h-1] || {};
+      const nac = hourData[`${v.name}-nac`]  || "0";
+      const ext = hourData[`${v.name}-ext`]  || "0";
+      const pel = hourData[`${v.name}-pel`]  || "0";
+
+      const baseX = 70 + (h-1) * colWidth;
+
+      doc.text(nac, baseX + 6,  y + 6, { align: "center" });
+      doc.text(ext, baseX + 18, y + 6, { align: "center" });
+      doc.text(pel, baseX + 30, y + 6, { align: "center" });
+    }
+
+    y += 10;
+  });
+
+  doc.setLineWidth(0.6);
+  doc.line(startX, y, 287, y);
+  y += 2;
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(0, 0, 0);
+  doc.text("TOTALES", startX + 5, y + 6);
+
+  for (let h = 1; h <= HOURS; h++) {
+    let totalNac = 0;
+    let totalExt = 0;
+    let totalPel = 0;
+
+    vehicleTypes.forEach(v => {
+      const hourData = data[h-1] || {};
+      totalNac += parseInt(hourData[`${v.name}-nac`] || "0");
+      totalExt += parseInt(hourData[`${v.name}-ext`] || "0");
+      totalPel += parseInt(hourData[`${v.name}-pel`] || "0");
+    });
+
+    const grandTotal = totalNac + totalExt + totalPel;
+
+    const baseX = 70 + (h-1) * colWidth;
+
+    doc.setFontSize(10);
+    doc.text(totalNac.toString(), baseX + 6,  y + 4, { align: "center" });
+    doc.text(totalExt.toString(), baseX + 18, y + 4, { align: "center" });
+    doc.text(totalPel.toString(), baseX + 30, y + 4, { align: "center" });
+
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 100);
+    doc.text(grandTotal.toString(), baseX + 18, y + 14, { align: "center" });
+  }
+
+  doc.setLineWidth(0.6);
+  doc.line(startX, y + 16, 287, y + 16);
+
+  doc.setLineWidth(2.5);
+  doc.setDrawColor(60, 60, 60);
+  const tableBottomY = y + 16;
+  for (let h = 1; h < HOURS; h++) {
+    const x = 70 + h * colWidth;
+    doc.line(x, 45, x, tableBottomY);
+  }
+
+  doc.line(65, 45, 65, tableBottomY);
+
+  const today = new Date().toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+  doc.setFontSize(8);
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Generado el ${today} – Sistema de Aforos`, 148.5, 200, { align: "center" });
+
+  doc.save("aforo_tabla_profesional.pdf");
+  menuContent.classList.remove("show");
+});
+
+window.addEventListener("beforeunload", saveCurrentHourData);
+</script>
+</body>
+</html>
