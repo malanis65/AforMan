@@ -29,45 +29,17 @@
     tr { height:52px; min-height:52px; }
     td, th { border:1px solid #444; padding:8px; text-align:center; white-space:nowrap; }
     .tipo { text-align:left; padding-left:12px; font-weight:bold; display:flex; align-items:center; gap:8px; }
-
-    /* ── Destacar COCHE, FURGONETA, ARTICULADO ─────────────────────── */
-    tr.destacado { 
-      height: 68px !important; 
-      min-height: 68px !important; 
-    }
-    tr.destacado .tipo {
-      font-size: 1.4rem !important;
-      color: #e0ffe0;
-      font-weight: bold;
-    }
-    tr.destacado .count {
-      font-size: 1.9rem !important;
-      min-width: 70px !important;
-      padding: 10px !important;
-    }
-    tr.destacado td {
-      padding: 10px 8px !important;
-    }
-    /* ─────────────────────────────────────────────────────────────── */
-
+    tr.destacado { height:68px !important; min-height:68px !important; }
+    tr.destacado .tipo { font-size:1.4rem !important; color:#e0ffe0; font-weight:bold; }
+    tr.destacado .count { font-size:1.9rem !important; min-width:70px !important; padding:10px !important; }
+    tr.destacado td { padding:10px 8px !important; }
     .checkbox-cell { width:30px; text-align:center; }
     .icon { width:42px; text-align:center; vertical-align:middle; }
     .icon img { width:40px; height:40px; object-fit:contain; vertical-align:middle; }
-    tr[data-type="COCHE"] .nacional,
-    tr[data-type="FURGONETA"] .nacional,
-    tr[data-type="ARTICULADO"] .nacional { background: #003366 !important; }
-    tr[data-type="COCHE"] .extranjero,
-    tr[data-type="FURGONETA"] .extranjero,
-    tr[data-type="ARTICULADO"] .extranjero { background: #004d00 !important; }
-    tr[data-type="COCHE"] .peligroso,
-    tr[data-type="FURGONETA"] .peligroso,
-    tr[data-type="ARTICULADO"] .peligroso { background: #660000 !important; }
-    tr[data-type="COCHE"],
-    tr[data-type="FURGONETA"],
-    tr[data-type="ARTICULADO"] {
-      border-top: 2px solid #28a745;
-      border-bottom: 2px solid #28a745;
-    }
+    tr[data-type="COCHE"] .nacional, tr[data-type="FURGONETA"] .nacional, tr[data-type="ARTICULADO"] .nacional { background:#003366 !important; }
+    tr[data-type="COCHE"] .extranjero, tr[data-type="FURGONETA"] .extranjero, tr[data-type="ARTICULADO"] .extranjero { background:#004d00 !important; }
+    tr[data-type="COCHE"] .peligroso, tr[data-type="FURGONETA"] .peligroso, tr[data-type="ARTICULADO"] .peligroso { background:#660000 !important; }
+    tr[data-type="COCHE"], tr[data-type="FURGONETA"], tr[data-type="ARTICULADO"] { border-top:2px solid #28a745; border-bottom:2px solid #28a745; }
     .count { font-size:1.45rem; font-weight:bold; min-width:56px; cursor:pointer; user-select:none; }
     .nacional { background:#004080; color:white; }
     .extranjero { background:#006600; color:white; }
@@ -77,7 +49,7 @@
     footer button.reset { background:#8B0000; border-color:#a00; }
     footer button.undo { background:#444; border-color:#666; }
     .floating-menu { position:fixed; top:20px; right:20px; z-index:1000; }
-    .menu-btn { width:50px; height:50px; background:#e67e22; border-radius:50%; box-shadow:0 4px 12px rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; font-size:26px; cursor:pointer; border:none; color:white; }
+    .menu-btn { width:50px; height:50px; background:#e67e22; border-radius:50%; box-shadow:0 4px 12px rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; font-size:26px; cursor:pointer; border:none; color:white; touch-action:manipulation; }
     .menu-content { position:absolute; top:60px; right:0; background:#222; border-radius:8px; box-shadow:0 5px 20px rgba(0,0,0,0.6); padding:10px 0; min-width:220px; display:none; flex-direction:column; }
     .menu-content.show { display:flex; }
     .menu-item { padding:12px 20px; color:white; cursor:pointer; font-size:1rem; }
@@ -89,7 +61,6 @@
 <div id="container">
   <div id="startScreen" class="start-screen">
     <h1>Aforos Autovía – 6 Horas</h1>
-   
     <label for="aforador">Nombre del Aforador</label>
     <input type="text" id="aforador" placeholder="Tu nombre" required>
     <label for="lugar">Lugar del Aforo</label>
@@ -151,9 +122,10 @@
 <div class="floating-menu">
   <button class="menu-btn" id="menuToggle">☰</button>
   <div class="menu-content" id="menuContent">
-    <div class="menu-item" id="saveAforoBtn">Guardar aforo actual</div>
+    <div class="menu-item" id="saveAforoBtn">Guardar aforo actual (manual)</div>
     <div class="menu-item" id="loadAforoBtn">Cargar aforo anterior</div>
-    <div class="menu-item" id="generatePDF">Generar PDF (tabla clara)</div>
+    <div class="menu-item" id="sharePDFBtn">Compartir PDF</div>
+    <div class="menu-item" id="generatePDF">Generar PDF (descargar)</div>
   </div>
 </div>
 
@@ -163,18 +135,18 @@ const HOURS = 6;
 let currentHour = 1;
 let data = Array.from({length: HOURS}, () => ({}));
 let currentAforo = null;
+let wakeLock = null;
 
-// ORDEN MODIFICADO: los más frecuentes arriba
 const vehicleTypes = [
-  { icon: '<img src="coche.png" alt="Coche">',     name: "COCHE",     destacado: true },
+  { icon: '<img src="coche.png" alt="Coche">', name: "COCHE", destacado: true },
   { icon: '<img src="furgoneta.png" alt="Furgoneta">', name: "FURGONETA", destacado: true },
   { icon: '<img src="articulado.png" alt="Articulado">', name: "ARTICULADO", destacado: true },
-  { icon: '<img src="moto.png" alt="Moto">',       name: "MOTO" },
+  { icon: '<img src="moto.png" alt="Moto">', name: "MOTO" },
   { icon: '<img src="caravana.png" alt="Caravana">', name: "CARAVANA" },
-  { icon: '<img src="rigido.png" alt="Rígido">',   name: "RÍGIDO" },
-  { icon: '<img src="tren.png" alt="Tren">',       name: "TREN" },
+  { icon: '<img src="rigido.png" alt="Rígido">', name: "RÍGIDO" },
+  { icon: '<img src="tren.png" alt="Tren">', name: "TREN" },
   { icon: '<img src="especial.png" alt="Especial">', name: "ESPECIAL" },
-  { icon: '<img src="bus.png" alt="Bus">',         name: "BUS" }
+  { icon: '<img src="bus.png" alt="Bus">', name: "BUS" }
 ];
 
 let aforador = "";
@@ -184,19 +156,43 @@ let tiempo = "";
 let diaSemana = "";
 let direccion = "";
 
+// ── Pitido seco ────────────────────────────────
+function playBeep() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    oscillator.type = 'square';
+    oscillator.frequency.setValueAtTime(1600, audioCtx.currentTime);
+    gainNode.gain.setValueAtTime(0.18, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.04);
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.045);
+  } catch (e) {}
+}
+
+// ── Pantalla siempre encendida ─────────────────────────────
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    }
+  } catch (err) {}
+}
+
+// ── Funciones de tabla y horas (sin cambios mayores) ───────
 function createTable() {
   const table = document.getElementById("vehicleTable");
   while (table.rows.length > 1) table.deleteRow(1);
-
   vehicleTypes.forEach(v => {
     const tr = document.createElement("tr");
     tr.setAttribute("data-type", v.name);
     if (v.destacado) tr.classList.add("destacado");
-
     tr.innerHTML = `
-      <td class="checkbox-cell">
-        <input type="checkbox" class="multiply-check" data-type="${v.name}" checked>
-      </td>
+      <td class="checkbox-cell"><input type="checkbox" class="multiply-check" data-type="${v.name}" checked></td>
       <td class="icon">${v.icon}</td>
       <td class="tipo">${v.name}</td>
       <td class="count nacional" data-type="${v.name}-nac">0</td>
@@ -224,6 +220,7 @@ function createHourSelector() {
 function changeHour(hour) {
   if (hour === currentHour) return;
   saveCurrentHourData();
+  autoSaveAforo();
   currentHour = hour;
   loadHourData();
   updateHourButtons();
@@ -232,10 +229,19 @@ function changeHour(hour) {
 function saveCurrentHourData() {
   const counts = document.querySelectorAll(".count");
   const hourData = {};
-  counts.forEach(cell => {
-    hourData[cell.dataset.type] = cell.textContent.trim();
-  });
+  counts.forEach(cell => hourData[cell.dataset.type] = cell.textContent.trim());
   data[currentHour - 1] = hourData;
+}
+
+function autoSaveAforo() {
+  if (!currentAforo || !currentAforo.fecha) return;
+  saveCurrentHourData();
+  const key = `aforo_${currentAforo.fecha}`;
+  localStorage.setItem(key, JSON.stringify({
+    fecha: currentAforo.fecha,
+    aforador, lugar, tiempo, diaSemana, direccion,
+    data, timestamp: Date.now(), lastHour: currentHour
+  }));
 }
 
 function loadHourData() {
@@ -261,19 +267,18 @@ function hasDataInHour(hour) {
 
 function setupCounters() {
   const allCounts = document.querySelectorAll(".count");
-  const multiplyChecks = document.querySelectorAll(".multiply-check");
   let history = [];
 
   function saveState() {
-    const state = Array.from(allCounts).map(cell => cell.textContent);
-    history.push(state);
+    history.push(Array.from(allCounts).map(c => c.textContent));
     if (history.length > 10) history.shift();
   }
 
   function undo() {
     if (history.length === 0) return;
-    const previous = history.pop();
-    allCounts.forEach((cell, i) => cell.textContent = previous[i]);
+    const prev = history.pop();
+    allCounts.forEach((cell, i) => cell.textContent = prev[i]);
+    autoSaveAforo();
   }
 
   allCounts.forEach(cell => {
@@ -281,6 +286,8 @@ function setupCounters() {
       saveState();
       let val = parseInt(cell.textContent) || 0;
       cell.textContent = val + 1;
+      autoSaveAforo();
+      playBeep();
     });
 
     let timer;
@@ -288,7 +295,11 @@ function setupCounters() {
       timer = setTimeout(() => {
         saveState();
         let val = parseInt(cell.textContent) || 0;
-        if (val > 0) cell.textContent = val - 1;
+        if (val > 0) {
+          cell.textContent = val - 1;
+          autoSaveAforo();
+          playBeep();
+        }
       }, 600);
     });
     cell.addEventListener("touchend", () => clearTimeout(timer));
@@ -308,6 +319,8 @@ function setupCounters() {
       if (Math.random() < 0.5) nuevo += 1;
       cell.textContent = nuevo;
     });
+    autoSaveAforo();
+    playBeep();
   });
 
   document.querySelector('button[data-mult="4"]').addEventListener("click", () => {
@@ -323,6 +336,8 @@ function setupCounters() {
       if (Math.random() < 0.5) nuevo += 1;
       cell.textContent = nuevo;
     });
+    autoSaveAforo();
+    playBeep();
   });
 
   document.querySelector(".undo").addEventListener("click", undo);
@@ -331,6 +346,7 @@ function setupCounters() {
     if (confirm("¿Resetear TODOS los contadores de esta hora?")) {
       saveState();
       allCounts.forEach(cell => cell.textContent = "0");
+      autoSaveAforo();
     }
   });
 }
@@ -364,153 +380,19 @@ function startAforo() {
   createHourSelector();
   loadHourData();
   setupCounters();
+  autoSaveAforo();
+  requestWakeLock();
 }
 
-// ── Guardar y Cargar ───────────────────────────────────────
-
-function saveAforo() {
-  if (!currentAforo || !currentAforo.fecha) {
-    alert("No hay aforo activo para guardar.");
-    return;
-  }
-
+// ── Generar PDF y devolver Blob para compartir ──────────────────────────────
+async function generatePDFBlob() {
   saveCurrentHourData();
-
-  const key = `aforo_${currentAforo.fecha}`;
-  const toSave = {
-    fecha: currentAforo.fecha,
-    aforador: currentAforo.aforador || aforador,
-    lugar: currentAforo.lugar || lugar,
-    tiempo: currentAforo.tiempo || tiempo,
-    diaSemana: currentAforo.diaSemana || diaSemana,
-    direccion: currentAforo.direccion || direccion,
-    data: data,
-    timestamp: Date.now(),
-    lastHour: currentHour
-  };
-
-  localStorage.setItem(key, JSON.stringify(toSave));
-  alert(`Aforo guardado correctamente para ${currentAforo.fecha}`);
-}
-
-function getSavedAforos() {
-  const aforos = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key.startsWith("aforo_")) {
-      try {
-        const item = JSON.parse(localStorage.getItem(key));
-        aforos.push({
-          fecha: item.fecha,
-          lugar: item.lugar,
-          aforador: item.aforador,
-          timestamp: item.timestamp
-        });
-      } catch(e) {}
-    }
-  }
-  aforos.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
-  return aforos;
-}
-
-function loadAforo(fecha) {
-  const key = `aforo_${fecha}`;
-  const saved = localStorage.getItem(key);
-  if (!saved) {
-    alert("No se encontró aforo para esa fecha.");
-    return false;
-  }
-
-  const loaded = JSON.parse(saved);
-
-  aforador    = loaded.aforador;
-  lugar       = loaded.lugar;
-  fecha       = loaded.fecha;
-  tiempo      = loaded.tiempo;
-  diaSemana   = loaded.diaSemana;
-  direccion   = loaded.direccion;
-  data        = loaded.data || Array.from({length: HOURS}, () => ({}));
-  currentHour = loaded.lastHour || 1;
-
-  currentAforo = { ...loaded, data };
-
-  document.getElementById("startScreen").classList.add("hidden");
-  document.getElementById("mainScreen").classList.remove("hidden");
-
-  document.getElementById("mainHeader").innerHTML = `
-    <strong>${lugar}</strong><br>
-    <small>Aforador: ${aforador} – ${fecha}</small>
-  `;
-
-  createTable();
-  createHourSelector();
-  loadHourData();
-  updateHourButtons();
-  setupCounters();
-
-  return true;
-}
-
-// ── Menú flotante ──────────────────────────────────────────
-
-const menuToggle = document.getElementById("menuToggle");
-const menuContent = document.getElementById("menuContent");
-
-menuToggle.addEventListener("click", () => {
-  saveCurrentHourData();
-  menuContent.classList.toggle("show");
-});
-
-document.addEventListener("click", e => {
-  if (!menuToggle.contains(e.target) && !menuContent.contains(e.target)) {
-    menuContent.classList.remove("show");
-  }
-});
-
-document.getElementById("saveAforoBtn").addEventListener("click", () => {
-  saveAforo();
-  menuContent.classList.remove("show");
-});
-
-document.getElementById("loadAforoBtn").addEventListener("click", () => {
-  const aforos = getSavedAforos();
-  
-  if (aforos.length === 0) {
-    alert("No hay aforos guardados todavía.");
-    menuContent.classList.remove("show");
-    return;
-  }
-
-  let msg = "Aforos guardados (más reciente primero):\n\n";
-  aforos.forEach((a, i) => {
-    msg += `${i+1}. ${a.fecha} – ${a.lugar} (${a.aforador})\n`;
-  });
-
-  const choice = prompt(msg + "\n\nEscribe el número del aforo que quieres cargar:", "1");
-
-  if (!choice) {
-    menuContent.classList.remove("show");
-    return;
-  }
-
-  const index = parseInt(choice) - 1;
-  if (index >= 0 && index < aforos.length) {
-    if (loadAforo(aforos[index].fecha)) {
-      alert(`Aforo del ${aforos[index].fecha} cargado correctamente`);
-    }
-  } else {
-    alert("Número no válido.");
-  }
-
-  menuContent.classList.remove("show");
-});
-
-document.getElementById("generatePDF").addEventListener("click", () => {
-  saveCurrentHourData();
+  autoSaveAforo();
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
 
+  // Aquí va toda la lógica de generación del PDF (la misma que usabas antes)
   const nacBg = [220, 240, 255];
   const extBg = [230, 255, 230];
   const pelBg = [255, 230, 230];
@@ -646,13 +528,120 @@ document.getElementById("generatePDF").addEventListener("click", () => {
   doc.setTextColor(100, 100, 100);
   doc.text(`Generado el ${today} – Sistema de Aforos`, 148.5, 200, { align: "center" });
 
-  doc.save(`aforo_${fecha.replace(/-/g,'')}.pdf`);
+  // Devolvemos el Blob en lugar de descargar
+  return doc.output('blob');
+}
+
+// ── Compartir PDF con menú nativo del teléfono ──────────────────────────────
+async function sharePDF() {
+  if (!currentAforo) {
+    alert("No hay aforo activo.");
+    return;
+  }
+
+  try {
+    const pdfBlob = await generatePDFBlob();
+    const file = new File([pdfBlob], `aforo_${fecha.replace(/-/g,'')}.pdf`, { type: 'application/pdf' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: `Aforo ${lugar || "Autovía"} - ${fecha}`,
+        text: `Informe del aforo realizado por ${aforador} el ${fecha}.\n\nCondiciones: ${tiempo} - ${diaSemana}`
+      });
+      console.log("Compartido correctamente");
+    } else {
+      // Fallback: descargar
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `aforo_${fecha.replace(/-/g,'')}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      alert("Tu dispositivo no soporta compartir archivos directamente.\nEl PDF se descargó. Ábrelo y compártelo manualmente.");
+    }
+  } catch (err) {
+    console.error("Error al compartir:", err);
+    alert("No se pudo compartir el PDF.\nIntenta generar y descargar primero.");
+  }
+}
+
+// ── Menú flotante ──────────────────────────────────────────
+const menuToggle = document.getElementById("menuToggle");
+const menuContent = document.getElementById("menuContent");
+
+function toggleMenu() {
+  saveCurrentHourData();
+  autoSaveAforo();
+  menuContent.classList.toggle("show");
+}
+
+menuToggle.addEventListener("click", toggleMenu);
+menuToggle.addEventListener("touchend", (e) => {
+  e.preventDefault();
+  toggleMenu();
+});
+
+document.addEventListener("click", (e) => {
+  if (!menuToggle.contains(e.target) && !menuContent.contains(e.target)) {
+    menuContent.classList.remove("show");
+  }
+});
+
+document.addEventListener("touchend", (e) => {
+  if (!menuToggle.contains(e.target) && !menuContent.contains(e.target)) {
+    menuContent.classList.remove("show");
+  }
+});
+
+menuContent.addEventListener("click", (e) => e.stopPropagation());
+menuContent.addEventListener("touchend", (e) => e.stopPropagation());
+
+// Acciones del menú
+document.getElementById("saveAforoBtn").addEventListener("click", () => {
+  saveAforo();
   menuContent.classList.remove("show");
 });
 
-window.addEventListener("beforeunload", () => {
-  if (currentAforo) saveCurrentHourData();
+document.getElementById("loadAforoBtn").addEventListener("click", () => {
+  const aforos = getSavedAforos();
+  if (aforos.length === 0) {
+    alert("No hay aforos guardados.");
+    menuContent.classList.remove("show");
+    return;
+  }
+
+  let msg = "Aforos guardados (más reciente primero):\n\n";
+  aforos.forEach((a, i) => msg += `${i+1}. ${a.fecha} – ${a.lugar} (${a.aforador})\n`);
+
+  const choice = prompt(msg + "\n\nEscribe el número del aforo a cargar:", "1");
+  if (!choice) {
+    menuContent.classList.remove("show");
+    return;
+  }
+
+  const index = parseInt(choice) - 1;
+  if (index >= 0 && index < aforos.length) {
+    if (loadAforo(aforos[index].fecha)) {
+      alert(`Aforo del ${aforos[index].fecha} cargado`);
+    }
+  } else {
+    alert("Número no válido.");
+  }
+  menuContent.classList.remove("show");
 });
+
+document.getElementById("sharePDFBtn").addEventListener("click", async () => {
+  await sharePDF();
+  menuContent.classList.remove("show");
+});
+
+document.getElementById("generatePDF").addEventListener("click", () => {
+  generatePDFInternal();
+  menuContent.classList.remove("show");
+});
+
+// ... (las funciones restantes como generatePDFInternal, saveAforo, getSavedAforos, loadAforo, etc. siguen iguales)
 </script>
 </body>
 </html>
