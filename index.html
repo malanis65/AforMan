@@ -29,44 +29,48 @@
     tr { height:52px; min-height:52px; }
     td, th { border:1px solid #444; padding:8px; text-align:center; white-space:nowrap; }
     .tipo { text-align:left; padding-left:12px; font-weight:bold; display:flex; align-items:center; gap:8px; }
-
-    tr.destacado { 
-      height: 68px !important; 
-      min-height: 68px !important; 
-    }
-    tr.destacado .tipo {
-      font-size: 1.4rem !important;
-      color: #e0ffe0;
-      font-weight: bold;
-    }
-    tr.destacado .count {
-      font-size: 1.9rem !important;
-      min-width: 70px !important;
-      padding: 10px !important;
-    }
-    tr.destacado td {
-      padding: 10px 8px !important;
-    }
-
+    tr.destacado { height: 68px !important; min-height: 68px !important; }
+    tr.destacado .tipo { font-size: 1.4rem !important; color: #e0ffe0; font-weight: bold; }
+    tr.destacado .count { font-size: 1.9rem !important; min-width: 70px !important; padding: 10px !important; }
+    tr.destacado td { padding: 10px 8px !important; }
     .checkbox-cell { width:30px; text-align:center; }
     .icon { width:42px; text-align:center; vertical-align:middle; }
     .icon img { width:40px; height:40px; object-fit:contain; vertical-align:middle; }
     tr[data-type="COCHE"] .nacional,
     tr[data-type="FURGONETA"] .nacional,
-    tr[data-type="ARTICULADO"] .nacional { background: #003366 !important; }
+    tr[data-type="ARTICULADO"] .nacional,
+    tr[data-type="RÍGIDO"] .nacional { background: #003366 !important; }
     tr[data-type="COCHE"] .extranjero,
     tr[data-type="FURGONETA"] .extranjero,
-    tr[data-type="ARTICULADO"] .extranjero { background: #004d00 !important; }
+    tr[data-type="ARTICULADO"] .extranjero,
+    tr[data-type="RÍGIDO"] .extranjero { background: #004d00 !important; }
     tr[data-type="COCHE"] .peligroso,
     tr[data-type="FURGONETA"] .peligroso,
-    tr[data-type="ARTICULADO"] .peligroso { background: #660000 !important; }
+    tr[data-type="ARTICULADO"] .peligroso,
+    tr[data-type="RÍGIDO"] .peligroso { background: #660000 !important; }
     tr[data-type="COCHE"],
     tr[data-type="FURGONETA"],
-    tr[data-type="ARTICULADO"] {
-      border-top: 2px solid #28a745;
-      border-bottom: 2px solid #28a745;
+    tr[data-type="ARTICULADO"],
+    tr[data-type="RÍGIDO"] { border-top: 2px solid #28a745; border-bottom: 2px solid #28a745; }
+    .count { 
+      font-size:1.45rem; 
+      font-weight:bold; 
+      min-width:56px; 
+      cursor:pointer; 
+      user-select:none; 
+      padding:4px 2px; 
+      min-height:30px; 
+      line-height:1.4;
     }
-    .count { font-size:1.45rem; font-weight:bold; min-width:56px; cursor:pointer; user-select:none; }
+    .edit-mode .count {
+      cursor: text;
+      background: #3a3a3a;
+      border: 1px dashed #28a745;
+      user-select: text;
+    }
+    .edit-mode .count:hover {
+      background: #444;
+    }
     .nacional { background:#004080; color:white; }
     .extranjero { background:#006600; color:white; }
     .peligroso { background:#8B0000; color:white; }
@@ -87,7 +91,7 @@
 <div id="container">
   <div id="startScreen" class="start-screen">
     <h1>Aforos Autovía – 6 Horas</h1>
-   
+  
     <label for="aforador">Nombre del Aforador</label>
     <input type="text" id="aforador" placeholder="Tu nombre" required>
     <label for="lugar">Lugar del Aforo</label>
@@ -121,7 +125,6 @@
     <input type="text" id="direccion" placeholder="Ej: Madrid → Barcelona" required>
     <button onclick="startAforo()">Iniciar Aforo</button>
   </div>
-
   <div id="mainScreen" class="hidden">
     <header id="mainHeader"><strong>Aforos Autovía – 6 horas</strong></header>
     <div class="hour-selector" id="hourSelector"></div>
@@ -145,12 +148,12 @@
     </footer>
   </div>
 </div>
-
 <div class="floating-menu">
   <button class="menu-btn" id="menuToggle">☰</button>
   <div class="menu-content" id="menuContent">
     <div class="menu-item" id="saveAforoBtn">Guardar aforo actual (manual)</div>
     <div class="menu-item" id="loadAforoBtn">Cargar aforo anterior</div>
+    <div class="menu-item" id="toggleEditMode">Activar modo edición</div>
     <div class="menu-item" id="generatePDF">Generar PDF (tabla clara)</div>
   </div>
 </div>
@@ -161,18 +164,19 @@ const HOURS = 6;
 let currentHour = 1;
 let data = Array.from({length: HOURS}, () => ({}));
 let currentAforo = null;
-let wakeLock = null;  // para mantener pantalla encendida
+let wakeLock = null;
+let editMode = false;
 
 const vehicleTypes = [
-  { icon: '<img src="coche.png" alt="Coche">',     name: "COCHE",     destacado: true },
+  { icon: '<img src="coche.png" alt="Coche">', name: "COCHE", destacado: true },
   { icon: '<img src="furgoneta.png" alt="Furgoneta">', name: "FURGONETA", destacado: true },
   { icon: '<img src="articulado.png" alt="Articulado">', name: "ARTICULADO", destacado: true },
-  { icon: '<img src="moto.png" alt="Moto">',       name: "MOTO" },
+  { icon: '<img src="rigido.png" alt="Rígido">', name: "RÍGIDO", destacado: true },
+  { icon: '<img src="moto.png" alt="Moto">', name: "MOTO" },
   { icon: '<img src="caravana.png" alt="Caravana">', name: "CARAVANA" },
-  { icon: '<img src="rigido.png" alt="Rígido">',   name: "RÍGIDO" },
-  { icon: '<img src="tren.png" alt="Tren">',       name: "TREN" },
+  { icon: '<img src="tren.png" alt="Tren">', name: "TREN" },
   { icon: '<img src="especial.png" alt="Especial">', name: "ESPECIAL" },
-  { icon: '<img src="bus.png" alt="Bus">',         name: "BUS" }
+  { icon: '<img src="bus.png" alt="Bus">', name: "BUS" }
 ];
 
 let aforador = "";
@@ -182,41 +186,31 @@ let tiempo = "";
 let diaSemana = "";
 let direccion = "";
 
-// ── Pitido seco tipo "click" ────────────────────────────────
+// ── Pitido ───────────────────────────────────────────────
 function playBeep() {
   try {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const oscillator = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
-
     oscillator.connect(gainNode);
     gainNode.connect(audioCtx.destination);
-
     oscillator.type = 'square';
     oscillator.frequency.setValueAtTime(1600, audioCtx.currentTime);
     gainNode.gain.setValueAtTime(0.18, audioCtx.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.04);
-
     oscillator.start();
     oscillator.stop(audioCtx.currentTime + 0.045);
   } catch (e) {}
 }
 
-// ── Mantener pantalla encendida (Screen Wake Lock) ─────────────────────────
+// ── Wake Lock ────────────────────────────────────────────
 async function requestWakeLock() {
   try {
     if ('wakeLock' in navigator) {
       wakeLock = await navigator.wakeLock.request('screen');
-      // console.log('Pantalla siempre encendida activada');
-      
-      wakeLock.addEventListener('release', () => {
-        // console.log('Wake Lock liberado');
-        wakeLock = null;
-      });
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
     }
-  } catch (err) {
-    // Silencioso - no todos los navegadores lo soportan
-  }
+  } catch (err) {}
 }
 
 function createTable() {
@@ -311,37 +305,68 @@ function hasDataInHour(hour) {
   return d && Object.values(d).some(v => v !== "0" && v !== "");
 }
 
+function toggleEditMode() {
+  editMode = !editMode;
+  const menuItem = document.getElementById("toggleEditMode");
+  const allCounts = document.querySelectorAll(".count");
+
+  if (editMode) {
+    menuItem.textContent = "Desactivar modo edición";
+    document.body.classList.add("edit-mode");
+    allCounts.forEach(cell => {
+      cell.contentEditable = true;
+      cell.dataset.originalCursor = cell.style.cursor || "pointer";
+      cell.style.cursor = "text";
+    });
+    alert("Modo edición activado:\n• Clic en cualquier número para editar\n• Usa teclado numérico\n• Enter o clic fuera para guardar");
+  } else {
+    menuItem.textContent = "Activar modo edición";
+    document.body.classList.remove("edit-mode");
+    allCounts.forEach(cell => {
+      cell.contentEditable = false;
+      cell.style.cursor = cell.dataset.originalCursor || "pointer";
+      if (!cell.textContent.trim()) cell.textContent = "0";
+    });
+    autoSaveAforo();
+    alert("Modo edición desactivado");
+  }
+}
+
 function setupCounters() {
   const allCounts = document.querySelectorAll(".count");
   let history = [];
 
   function saveState() {
-    const state = Array.from(allCounts).map(cell => cell.textContent);
+    const state = Array.from(allCounts).map(cell => cell.textContent.trim());
     history.push(state);
-    if (history.length > 10) history.shift();
+    if (history.length > 15) history.shift();
   }
 
   function undo() {
     if (history.length === 0) return;
     const previous = history.pop();
-    allCounts.forEach((cell, i) => cell.textContent = previous[i]);
+    allCounts.forEach((cell, i) => {
+      cell.textContent = previous[i] || "0";
+    });
     autoSaveAforo();
   }
 
   allCounts.forEach(cell => {
-    cell.addEventListener("click", () => {
+    cell.addEventListener("click", (e) => {
+      if (editMode) return;
       saveState();
-      let val = parseInt(cell.textContent) || 0;
+      let val = parseInt(cell.textContent.trim()) || 0;
       cell.textContent = val + 1;
       autoSaveAforo();
       playBeep();
     });
 
-    let timer;
-    cell.addEventListener("touchstart", () => {
-      timer = setTimeout(() => {
+    let longPressTimer;
+    cell.addEventListener("touchstart", (e) => {
+      if (editMode) return;
+      longPressTimer = setTimeout(() => {
         saveState();
-        let val = parseInt(cell.textContent) || 0;
+        let val = parseInt(cell.textContent.trim()) || 0;
         if (val > 0) {
           cell.textContent = val - 1;
           autoSaveAforo();
@@ -349,11 +374,34 @@ function setupCounters() {
         }
       }, 600);
     });
-    cell.addEventListener("touchend", () => clearTimeout(timer));
-    cell.addEventListener("touchmove", () => clearTimeout(timer));
+
+    cell.addEventListener("touchend", () => clearTimeout(longPressTimer));
+    cell.addEventListener("touchmove", () => clearTimeout(longPressTimer));
+    cell.addEventListener("touchcancel", () => clearTimeout(longPressTimer));
+
+    cell.addEventListener("keydown", (e) => {
+      if (!editMode && !cell.isContentEditable) return;
+      if (e.key === "Enter") {
+        e.preventDefault();
+        cell.blur();
+      }
+      else if (!/[0-9]/.test(e.key) && e.key !== "Backspace" && e.key !== "Delete") {
+        e.preventDefault();
+      }
+    });
+
+    cell.addEventListener("blur", () => {
+      if (editMode) {
+        if (!cell.textContent.trim() || isNaN(parseInt(cell.textContent))) {
+          cell.textContent = "0";
+        }
+        autoSaveAforo();
+      }
+    });
   });
 
   document.querySelector('button[data-mult="2"]').addEventListener("click", () => {
+    if (editMode) return;
     saveState();
     allCounts.forEach(cell => {
       if (!cell.classList.contains("nacional")) return;
@@ -371,6 +419,7 @@ function setupCounters() {
   });
 
   document.querySelector('button[data-mult="4"]').addEventListener("click", () => {
+    if (editMode) return;
     saveState();
     allCounts.forEach(cell => {
       if (!cell.classList.contains("nacional")) return;
@@ -387,9 +436,13 @@ function setupCounters() {
     playBeep();
   });
 
-  document.querySelector(".undo").addEventListener("click", undo);
+  document.querySelector(".undo").addEventListener("click", () => {
+    if (editMode) return;
+    undo();
+  });
 
   document.querySelector(".reset").addEventListener("click", () => {
+    if (editMode) return;
     if (confirm("¿Resetear TODOS los contadores de esta hora?")) {
       saveState();
       allCounts.forEach(cell => cell.textContent = "0");
@@ -406,18 +459,12 @@ function startAforo() {
   diaSemana = document.getElementById("dia_semana").value || "No especificado";
   direccion = document.getElementById("direccion").value.trim() || "No especificada";
 
-  currentAforo = {
-    fecha, aforador, lugar, tiempo, diaSemana, direccion,
-    data: Array.from({length: HOURS}, () => ({})),
-    lastHour: 1
-  };
-
+  currentAforo = { fecha, aforador, lugar, tiempo, diaSemana, direccion, data: Array.from({length: HOURS}, () => ({})), lastHour: 1 };
   data = currentAforo.data;
   currentHour = 1;
 
   document.getElementById("startScreen").classList.add("hidden");
   document.getElementById("mainScreen").classList.remove("hidden");
-
   document.getElementById("mainHeader").innerHTML = `
     <strong>${lugar}</strong><br>
     <small>Aforador: ${aforador} – ${fecha}</small>
@@ -428,13 +475,10 @@ function startAforo() {
   loadHourData();
   setupCounters();
   autoSaveAforo();
-  
-  // Mantener pantalla encendida
   requestWakeLock();
 }
 
-// ── Guardar y Cargar ───────────────────────────────────────
-
+// ── Guardar / Cargar ───────────────────────────────────────
 function saveAforo() {
   if (!currentAforo || !currentAforo.fecha) {
     alert("No hay aforo activo.");
@@ -471,23 +515,19 @@ function loadAforo(fecha) {
     alert("No se encontró aforo para esa fecha.");
     return false;
   }
-
   const loaded = JSON.parse(saved);
-
-  aforador    = loaded.aforador;
-  lugar       = loaded.lugar;
-  fecha       = loaded.fecha;
-  tiempo      = loaded.tiempo;
-  diaSemana   = loaded.diaSemana;
-  direccion   = loaded.direccion;
-  data        = loaded.data || Array.from({length: HOURS}, () => ({}));
+  aforador = loaded.aforador;
+  lugar = loaded.lugar;
+  fecha = loaded.fecha;
+  tiempo = loaded.tiempo;
+  diaSemana = loaded.diaSemana;
+  direccion = loaded.direccion;
+  data = loaded.data || Array.from({length: HOURS}, () => ({}));
   currentHour = loaded.lastHour || 1;
-
   currentAforo = { ...loaded, data };
 
   document.getElementById("startScreen").classList.add("hidden");
   document.getElementById("mainScreen").classList.remove("hidden");
-
   document.getElementById("mainHeader").innerHTML = `
     <strong>${lugar}</strong><br>
     <small>Aforador: ${aforador} – ${fecha}</small>
@@ -498,15 +538,11 @@ function loadAforo(fecha) {
   loadHourData();
   updateHourButtons();
   setupCounters();
-  
-  // Mantener pantalla encendida también al cargar uno anterior
   requestWakeLock();
-
   return true;
 }
 
 // ── Menú flotante ──────────────────────────────────────────
-
 const menuToggle = document.getElementById("menuToggle");
 const menuContent = document.getElementById("menuContent");
 
@@ -534,19 +570,15 @@ document.getElementById("loadAforoBtn").addEventListener("click", () => {
     menuContent.classList.remove("show");
     return;
   }
-
   let msg = "Aforos guardados (más reciente primero):\n\n";
   aforos.forEach((a, i) => {
     msg += `${i+1}. ${a.fecha} – ${a.lugar} (${a.aforador})\n`;
   });
-
   const choice = prompt(msg + "\n\nEscribe el número del aforo que quieres cargar:", "1");
-
   if (!choice) {
     menuContent.classList.remove("show");
     return;
   }
-
   const index = parseInt(choice) - 1;
   if (index >= 0 && index < aforos.length) {
     if (loadAforo(aforos[index].fecha)) {
@@ -555,75 +587,64 @@ document.getElementById("loadAforoBtn").addEventListener("click", () => {
   } else {
     alert("Número no válido.");
   }
+  menuContent.classList.remove("show");
+});
 
+document.getElementById("toggleEditMode").addEventListener("click", () => {
+  toggleEditMode();
   menuContent.classList.remove("show");
 });
 
 document.getElementById("generatePDF").addEventListener("click", () => {
   saveCurrentHourData();
   autoSaveAforo();
-
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
-
   const nacBg = [220, 240, 255];
   const extBg = [230, 255, 230];
   const pelBg = [255, 230, 230];
   const headerBg = [40, 40, 60];
-
   doc.setFillColor(...headerBg);
   doc.rect(0, 0, 297, 45, 'F');
-
   doc.setFontSize(20);
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.text("AFORO AUTOVÍA – REGISTRO POR HORAS", 148.5, 18, { align: "center" });
-
   doc.setFontSize(11);
   doc.setTextColor(220, 220, 220);
   doc.text(`Aforador: ${aforador} | Lugar: ${lugar} | Fecha: ${fecha}`, 148.5, 30, { align: "center" });
-
   doc.setFontSize(10);
   doc.text(`Estado del tiempo: ${tiempo} | Día: ${diaSemana} | Dirección: ${direccion}`, 148.5, 38, { align: "center" });
-
   let y = 55;
   const colWidth = 36;
   const startX = 10;
-
   doc.setFillColor(230, 230, 230);
   doc.rect(startX, y-8, 277, 14, 'F');
-
   doc.setFontSize(12);
   doc.setTextColor(0, 0, 0);
   doc.setFont("helvetica", "bold");
   doc.text("Tipo de vehículo", startX + 5, y);
-
   for (let h = 1; h <= HOURS; h++) {
     const baseX = 70 + (h-1) * colWidth;
     doc.text(`H${h}`, baseX + colWidth/2, y, { align: "center" });
   }
-
   y += 6;
   doc.setFontSize(9);
   doc.setTextColor(0, 0, 0);
   doc.setFont("helvetica", "bold");
-
   for (let h = 1; h <= HOURS; h++) {
     const baseX = 70 + (h-1) * colWidth;
     doc.setFillColor(...nacBg); doc.rect(baseX, y-4, 12, 10, 'F'); doc.text("Nac.", baseX + 6, y, { align: "center" });
     doc.setFillColor(...extBg); doc.rect(baseX + 12, y-4, 12, 10, 'F'); doc.text("Ext.", baseX + 18, y, { align: "center" });
     doc.setFillColor(...pelBg); doc.rect(baseX + 24, y-4, 12, 10, 'F'); doc.text("Pel.", baseX + 30, y, { align: "center" });
   }
-
   y += 8;
   doc.setLineWidth(0.6);
   doc.line(startX, y, 287, y);
   y += 2;
-
   doc.setLineWidth(2.0);
   doc.setDrawColor(60, 60, 60);
   doc.line(65, 45, 65, y + 10 * vehicleTypes.length + 16);
-
   let startY = y;
   vehicleTypes.forEach(() => {
     for (let h = 0; h < HOURS; h++) {
@@ -634,15 +655,12 @@ document.getElementById("generatePDF").addEventListener("click", () => {
     }
     startY += 10;
   });
-
   y = 55 + 14 + 8 + 2;
-
   vehicleTypes.forEach(v => {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(0, 0, 0);
     doc.text(v.name, 15, y + 6);
-
     for (let h = 1; h <= HOURS; h++) {
       const hourData = data[h-1] || {};
       const nac = hourData[`${v.name}-nac`] || "0";
@@ -655,16 +673,13 @@ document.getElementById("generatePDF").addEventListener("click", () => {
     }
     y += 10;
   });
-
   doc.setLineWidth(0.6);
   doc.line(startX, y, 287, y);
   y += 2;
-
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 0);
   doc.text("TOTALES", startX + 5, y + 6);
-
   for (let h = 1; h <= HOURS; h++) {
     let totalNac = 0, totalExt = 0, totalPel = 0;
     vehicleTypes.forEach(v => {
@@ -683,10 +698,8 @@ document.getElementById("generatePDF").addEventListener("click", () => {
     doc.setTextColor(0, 0, 100);
     doc.text(grandTotal.toString(), baseX + 18, y + 14, { align: "center" });
   }
-
   doc.setLineWidth(0.6);
   doc.line(startX, y + 16, 287, y + 16);
-
   doc.setLineWidth(2.5);
   doc.setDrawColor(60, 60, 60);
   const tableBottomY = y + 16;
@@ -695,12 +708,10 @@ document.getElementById("generatePDF").addEventListener("click", () => {
     doc.line(x, 45, x, tableBottomY);
   }
   doc.line(65, 45, 65, tableBottomY);
-
   const today = new Date().toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
   doc.setFontSize(8);
   doc.setTextColor(100, 100, 100);
   doc.text(`Generado el ${today} – Sistema de Aforos`, 148.5, 200, { align: "center" });
-
   doc.save(`aforo_${fecha.replace(/-/g,'')}.pdf`);
   menuContent.classList.remove("show");
 });
